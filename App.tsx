@@ -1,118 +1,81 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
 import React from 'react';
-import type {PropsWithChildren} from 'react';
+import {View, Text, Button, Alert} from 'react-native';
+import NfcManager, {NfcTech} from 'react-native-nfc-manager';
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+  HCESession,
+  NFCTagType4NDEFContentType,
+  NFCTagType4,
+} from 'react-native-hce';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+// Componente principal de la aplicación
+export default function App() {
+  // Variable para la sesión HCE (Host Card Emulation)
+  let session: HCESession | null = null;
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
+  // Función para emular un tag NFC tipo 4
+  async function sendData() {
+    // Crear un tag NFC tipo 4 con contenido de texto
+    const tag = new NFCTagType4({
+      type: NFCTagType4NDEFContentType.Text,
+      content: 'modo', // Contenido a emular
+      writable: false, // El tag no es escribible
+    });
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+    // Obtener la instancia de la sesión HCE
+    session = await HCESession.getInstance();
+    // Configurar la aplicación HCE con el tag creado
+    session.setApplication(tag);
+    // Habilitar la sesión HCE
+    await session.setEnabled(true).catch(err => console.log(err));
+  }
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+  // Función para leer un tag NFC
+  const readNfc = async () => {
+    try {
+      // Solicitar la tecnología NFC (NfcA en este caso)
+      await NfcManager.requestTechnology(NfcTech.NfcA);
+      // Obtener el tag NFC detectado
+      const tag = await NfcManager.getTag();
+      console.log(tag);
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+      // Comando SELECT para seleccionar un archivo en el tag
+      const selectCommand = [0x00, 0xa4, 0x00, 0x0c, 0x02, 0xe1, 0x04]; // Cambia 0xE1, 0x04 por tu File ID
+      let response = await NfcManager.transceive(selectCommand);
+
+      // Comprobar la respuesta del comando SELECT
+      if (response[response.length - 2] !== 0x90 || response[response.length - 1] !== 0x00) {
+        throw new Error('Failed to select file');
+      }
+
+      // Comando READ BINARY para leer los datos del archivo
+      const readCommand = [0x00, 0xb0, 0x00, 0x00, 0x10]; // Leer 16 bytes
+      response = await NfcManager.transceive(readCommand);
+
+      // Comprobar la respuesta del comando READ BINARY
+      if (response[response.length - 2] !== 0x90 || response[response.length - 1] !== 0x00) {
+        throw new Error('Failed to read file');
+      }
+
+      // Extraer los datos del archivo (excluyendo los últimos dos bytes de estado)
+      const fileData = response.slice(0, -2);
+      const fileText = fileData.map(byte => byte.toString(16).padStart(2, '0')).join(' ');
+      // Mostrar los datos del archivo en una alerta
+      Alert.alert('File Data', fileText);
+    } catch (ex) {
+      console.warn(ex);
+      Alert.alert('Error', ex.toString());
+    } finally {
+      // Cancelar la solicitud de tecnología NFC
+      NfcManager.cancelTechnologyRequest();
+    }
   };
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <View>
+      {/* Botón para leer el tag NFC */}
+      <Button onPress={readNfc} title="LEER TAG NFC" />
+      {/* Botón para emular el tag NFC */}
+      <Button onPress={sendData} title="EMULAR TAG NFC" />
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
-
-export default App;

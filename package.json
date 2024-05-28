@@ -1,7 +1,7 @@
 {
-  "name": "NFCCommunication",
+  "name": "hackathon-nfc-p2p-poc",
   "version": "0.0.1",
-  "private": true,
+  "private": false,
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
@@ -11,7 +11,10 @@
   },
   "dependencies": {
     "react": "18.2.0",
-    "react-native": "0.74.1"
+    "react-native": "0.74.1",
+    "react-native-hce": "^0.2.0",
+    "react-native-nfc-manager": "^3.14.14",
+    "react-native-nfc-sdk": "^0.3.4-beta"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
